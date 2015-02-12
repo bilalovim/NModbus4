@@ -30,14 +30,12 @@ namespace Modbus.Device
             if (client == null)
                 throw new ArgumentNullException("client");
             if (slave == null)
-                throw new ArgumentException("slave");
+                throw new ArgumentNullException("slave");
 
             _client = client;
             _endPoint = client.Client.RemoteEndPoint.ToString();
             _stream = client.GetStream();
             _slave = slave;
-            _stopStream = false; //сброс флага "останов потока"
-
             Debug.WriteLine("Creating new Master connection at IP:{0}", EndPoint);
 
             Debug.WriteLine("Begin reading header.");
@@ -64,18 +62,9 @@ namespace Modbus.Device
             get { return _client; }
         }
 
-        private bool _stopStream;
-
         internal void ReadHeaderCompleted(IAsyncResult ar)
         {
             Debug.WriteLine("Read header completed.");
-
-            //Проверяю надо ли остановить поток
-            if (_stopStream)
-            {
-                _stream.Close();
-                return;
-            }
 
             CatchExceptionAndRemoveMasterEndPoint(() =>
             {
@@ -98,13 +87,6 @@ namespace Modbus.Device
 
         internal void ReadFrameCompleted(IAsyncResult ar)
         {
-            //Проверяю надо ли остановить поток
-            if (_stopStream)
-            {
-                _stream.Close();
-                return;
-            }
-
             CatchExceptionAndRemoveMasterEndPoint(() =>
             {
                 Debug.WriteLine("Read Frame completed {0} bytes", Stream.EndRead(ar));
@@ -128,13 +110,6 @@ namespace Modbus.Device
 
         internal void WriteCompleted(IAsyncResult ar)
         {
-            //Проверяю надо ли остановить поток
-            if (_stopStream)
-            {
-                _stream.Close();
-                return;
-            }
-
             Debug.WriteLine("End write.");
 
             CatchExceptionAndRemoveMasterEndPoint(() =>
@@ -165,23 +140,21 @@ namespace Modbus.Device
             catch (Exception ex)
             {
                 Debug.WriteLine("Exception processing request: [{0}] {1}", ex.GetType().Name, ex.Message);
-                if (!(ex is IOException || ex is FormatException))
-                    throw; // This will typically result in the exception being unhandled, which will terminate the thread pool thread and thereby the process, depending on the process's 
-                 //configuration. Such a crash would cause all connections to be dropped, even if the slave were restarted.
-                // Otherwise, the request is discarded and the slave awaits the next message. If the master is unable to synchronize the frame, it can drop the connection.
+
+                // This will typically result in the exception being unhandled, which will terminate the thread pool thread and
+                // thereby the process, depending on the process's configuration. Such a crash would cause all connections to be
+                // dropped, even if the slave were restarted.
+                // Otherwise, the request is discarded and the slave awaits the next message. If the master is unable to synchronize
+                //the frame, it can drop the connection.
+                if (!(ex is IOException || ex is FormatException || ex is ObjectDisposedException))
+                    throw;
             }
         }
 
-        public void ModbusMasterTcpConnectionClose()
+        protected override void Dispose(bool disposing)
         {
-            //Освобождаем мастера
-            ModbusMasterTcpConnectionClosed.Raise(this, new TcpConnectionEventArgs(EndPoint));
-
-            //выставляем флаг "останов потока"
-            if (_stream != null)
-                _stopStream = true;
+            _stream.Close();
+            base.Dispose(disposing);
         }
-
-
     }
 }
