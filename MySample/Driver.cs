@@ -37,7 +37,18 @@ namespace MySample
                 Console.WriteLine(e.Message);
             }
 
-            Console.ReadKey();
+
+            do
+            {
+                ConsoleKeyInfo kInfo = Console.ReadKey();
+
+                switch (kInfo.KeyChar)
+                {
+                    case '1': Start(); break;
+                    case '2': Stop(); break;
+                }
+            }
+            while (true);
         }
 
         /// <summary>
@@ -211,6 +222,10 @@ namespace MySample
             // TODO
         }
 
+
+        static IPAddress address;
+        static TcpListener slaveTcpListener;
+        static ModbusSlave slave ;
         /// <summary>
         ///     Simple Modbus TCP slave example.
         /// </summary>
@@ -218,19 +233,41 @@ namespace MySample
         {
             byte slaveId = 1;
             int port = 502;
-            IPAddress address = new IPAddress(new byte[] { 127, 0, 0, 1 });
+            address = new IPAddress(new byte[] { 192, 168,10, 25 });
 
             // create and start the TCP slave
-            TcpListener slaveTcpListener = new TcpListener(address, port);
+            slaveTcpListener = new TcpListener(address, port);
             slaveTcpListener.Start();
 
-            ModbusSlave slave = ModbusTcpSlave.CreateTcp(slaveId, slaveTcpListener);
+            slave = ModbusTcpSlave.CreateTcp(slaveId, slaveTcpListener);
             slave.DataStore = DataStoreFactory.CreateDefaultDataStore();
 
             slave.Listen();
 
             // prevent the main thread from exiting
-            Thread.Sleep(Timeout.Infinite);
+            //Thread.Sleep(Timeout.Infinite);
+        }
+
+        public static void Start()
+        {
+            byte slaveId = 1;
+            int port = 502;
+            address = new IPAddress(new byte[] { 192, 168,10, 25 });
+
+            // create and start the TCP slave
+            slaveTcpListener = new TcpListener(address, port);
+            slaveTcpListener.Start();
+
+            slave = ModbusTcpSlave.CreateTcp(slaveId, slaveTcpListener);
+            slave.DataStore = DataStoreFactory.CreateDefaultDataStore();
+
+            slave.Listen();
+        }
+
+        public static void Stop()
+        {
+           
+            slave.Dispose();
         }
 
         /// <summary>
@@ -367,5 +404,7 @@ namespace MySample
                 uint value = ModbusUtility.GetUInt32(registers[1], registers[0]);
             }
         }
+
+
     }
 }

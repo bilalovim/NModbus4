@@ -94,7 +94,7 @@ namespace Modbus.Extensions.Enron
         }
 
         /// <summary>
-        ///     Convert the 32 bit registers to two 16 bit values.
+        /// Convert the 32 bit registers to two 16 bit values.
         /// </summary>
         internal static IEnumerable<ushort> Convert(uint[] registers)
         {

@@ -94,6 +94,9 @@ namespace Modbus.Device
             }
         }
 
+
+
+
         internal void RemoveMaster(string endPoint)
         {
             lock (_mastersLock)
@@ -171,10 +174,31 @@ namespace Modbus.Device
                         {
                             _server.Stop();
                             _server = null;
+
+                            ModbusMasterTcpConnectionClose();
+
                         }
                     }
                 }
             }
         }
+
+        protected void ModbusMasterTcpConnectionClose()
+        {
+            lock (_mastersLock)
+            {
+
+                List<string> mkList = new List<string>();
+
+                foreach (object keydic in _masters.Keys)
+                    mkList.Add((string)keydic);
+
+                foreach (string sendpoint in mkList)
+                    _masters[sendpoint].ModbusMasterTcpConnectionClose();
+            }
+        }
+            
+
+
     }
 }

@@ -36,6 +36,8 @@ namespace Modbus.Device
             _endPoint = client.Client.RemoteEndPoint.ToString();
             _stream = client.GetStream();
             _slave = slave;
+            _stopStream = false; //сброс флага "останов потока"
+
             Debug.WriteLine("Creating new Master connection at IP:{0}", EndPoint);
 
             Debug.WriteLine("Begin reading header.");
@@ -62,9 +64,18 @@ namespace Modbus.Device
             get { return _client; }
         }
 
+        private bool _stopStream;
+
         internal void ReadHeaderCompleted(IAsyncResult ar)
         {
             Debug.WriteLine("Read header completed.");
+
+            //Проверяю надо ли остановить поток
+            if (_stopStream)
+            {
+                _stream.Close();
+                return;
+            }
 
             CatchExceptionAndRemoveMasterEndPoint(() =>
             {
@@ -87,6 +98,13 @@ namespace Modbus.Device
 
         internal void ReadFrameCompleted(IAsyncResult ar)
         {
+            //Проверяю надо ли остановить поток
+            if (_stopStream)
+            {
+                _stream.Close();
+                return;
+            }
+
             CatchExceptionAndRemoveMasterEndPoint(() =>
             {
                 Debug.WriteLine("Read Frame completed {0} bytes", Stream.EndRead(ar));
@@ -110,6 +128,13 @@ namespace Modbus.Device
 
         internal void WriteCompleted(IAsyncResult ar)
         {
+            //Проверяю надо ли остановить поток
+            if (_stopStream)
+            {
+                _stream.Close();
+                return;
+            }
+
             Debug.WriteLine("End write.");
 
             CatchExceptionAndRemoveMasterEndPoint(() =>
@@ -141,9 +166,22 @@ namespace Modbus.Device
             {
                 Debug.WriteLine("Exception processing request: [{0}] {1}", ex.GetType().Name, ex.Message);
                 if (!(ex is IOException || ex is FormatException))
-                    throw; // This will typically result in the exception being unhandled, which will terminate the thread pool thread and thereby the process, depending on the process's configuration. Such a crash would cause all connections to be dropped, even if the slave were restarted.
+                    throw; // This will typically result in the exception being unhandled, which will terminate the thread pool thread and thereby the process, depending on the process's 
+                 //configuration. Such a crash would cause all connections to be dropped, even if the slave were restarted.
                 // Otherwise, the request is discarded and the slave awaits the next message. If the master is unable to synchronize the frame, it can drop the connection.
             }
         }
+
+        public void ModbusMasterTcpConnectionClose()
+        {
+            //Освобождаем мастера
+            ModbusMasterTcpConnectionClosed.Raise(this, new TcpConnectionEventArgs(EndPoint));
+
+            //выставляем флаг "останов потока"
+            if (_stream != null)
+                _stopStream = true;
+        }
+
+
     }
 }
